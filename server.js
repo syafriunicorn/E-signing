@@ -203,6 +203,9 @@ app.listen(PORT, () => {
   console.log(`
 🚀 SERVER RUNNING
 
+console.log(process.env.EMAIL_USER);
+console.log(process.env.EMAIL_PASS);
+
 http://localhost:${PORT}
   `);
 });
