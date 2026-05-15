@@ -71,63 +71,72 @@ app.post("/submit", async (req, res) => {
 
     // ================= EMAIL =================
     stream.on("finish", async () => {
-  try {
-    console.log("📤 Sending email via Resend...");
+      try {
+        console.log("📤 Sending email via Resend...");
 
-    const result = await resend.emails.send({
-      from: "ZGG System <onboarding@resend.dev>",
-      to: [email, process.env.ADMIN_EMAIL], // gantikan cc (lebih stable)
-      subject: "Salinan Borang Tanda Tangan",
-      html: `
-        <h2>Terima kasih ${name}</h2>
-        <p>Borang anda telah diterima oleh <b>ZGG System</b>.</p>
-        <p>PDF anda telah disimpan dalam sistem.</p>
-      `,
+        const result = await resend.emails.send({
+          from: "ZGG System <onboarding@resend.dev>",
+
+          to: [email, process.env.ADMIN_EMAIL],
+
+          subject: "Salinan Borang Tanda Tangan",
+
+          html: `
+            <h2>Terima kasih ${name}</h2>
+
+            <p>Borang anda telah diterima oleh <b>ZGG System</b>.</p>
+
+            <p>Maklumat anda telah berjaya disimpan.</p>
+          `,
+        });
+
+        console.log("📨 RESEND RESULT:", result);
+
+        // delete temp signature
+        if (fs.existsSync(signaturePath)) {
+          fs.unlinkSync(signaturePath);
+        }
+
+        console.log("✅ EMAIL SENT SUCCESS");
+
+        return res.send(
+          "✅ Berjaya hantar & email dihantar!"
+        );
+
+      } catch (err) {
+
+        console.log("❌ RESEND ERROR:");
+        console.log(err);
+
+        return res
+          .status(500)
+          .send("❌ Gagal hantar email");
+      }
     });
 
-    console.log("📨 RESEND RESULT:", result);
+    // ================= PDF ERROR =================
+    stream.on("error", (err) => {
 
-    // cleanup signature file
-    if (fs.existsSync(signaturePath)) {
-      fs.unlinkSync(signaturePath);
-    }
+      console.log("❌ PDF STREAM ERROR:");
+      console.log(err);
 
-    console.log("✅ EMAIL SENT SUCCESS (RESEND)");
+      return res
+        .status(500)
+        .send("❌ PDF error");
+    });
 
-    return res.send("✅ Berjaya hantar & email dihantar!");
   } catch (err) {
-    console.log("❌ RESEND ERROR FULL:");
+
+    console.log("❌ SERVER ERROR:");
     console.log(err);
 
-    return res.status(500).send("❌ Gagal hantar email");
+    return res
+      .status(500)
+      .send("❌ Server error");
   }
 });
 
-stream.on("error", (err) => {
-  console.log("❌ PDF STREAM ERROR:");
-  console.log(err);
-
-  return res.status(500).send("❌ PDF error");
-});
-
-// ================= TEST EMAIL =================
-app.get("/test-email", async (req, res) => {
-  try {
-    await resend.emails.send({
-      from: "onboarding@resend.dev",
-      to: process.env.ADMIN_EMAIL,
-      subject: "TEST EMAIL",
-      html: "<p>Email Resend OK di Render</p>",
-    });
-
-    res.send("EMAIL SUCCESS");
-  } catch (err) {
-    console.log(err);
-    res.status(500).send("EMAIL FAIL");
-  }
-});
-
-// ================= START =================
+// ================= START SERVER =================
 app.listen(PORT, () => {
-  console.log(`🚀 SERVER RUNNING ON ${PORT}`);
+  console.log(`🚀 SERVER RUNNING ON PORT ${PORT}`);
 });
