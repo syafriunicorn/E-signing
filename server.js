@@ -6,6 +6,9 @@ const path = require("path");
 const PDFDocument = require("pdfkit");
 const nodemailer = require("nodemailer");
 
+console.log(process.env.EMAIL_USER);
+console.log(process.env.EMAIL_PASS);
+
 const app = express();
 
 const PORT = process.env.PORT || 3001;
@@ -203,8 +206,6 @@ app.listen(PORT, () => {
   console.log(`
 🚀 SERVER RUNNING
 
-console.log(process.env.EMAIL_USER);
-console.log(process.env.EMAIL_PASS);
 
 http://localhost:${PORT}
   `);
