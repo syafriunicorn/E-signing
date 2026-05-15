@@ -35,14 +35,15 @@ const transporter = nodemailer.createTransport({
 });
 
 // verify email connection
-transporter.verify((err) => {
+transporter.verify((err, success) => {
   if (err) {
-    console.log("❌ EMAIL CONNECTION ERROR:");
-    console.log(err.message);
+    console.log("❌ EMAIL VERIFY ERROR FULL:");
+    console.log(err);
   } else {
-    console.log("✅ EMAIL READY");
+    console.log("✅ EMAIL READY OK");
   }
 });
+
 
 // ================= SUBMIT =================
 app.post("/submit", async (req, res) => {
@@ -140,4 +141,20 @@ app.post("/submit", async (req, res) => {
 // ================= START =================
 app.listen(PORT, () => {
   console.log(`🚀 SERVER RUNNING ON PORT ${PORT}`);
+});
+
+app.get("/test-email", async (req, res) => {
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.ADMIN_EMAIL,
+      subject: "TEST EMAIL",
+      text: "Email test dari Render OK",
+    });
+
+    res.send("EMAIL OK");
+  } catch (err) {
+    console.log(err);
+    res.status(500).send("EMAIL FAIL");
+  }
 });
