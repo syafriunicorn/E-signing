@@ -16,6 +16,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ================= FOLDER =================
 const pdfFolder = path.join(__dirname, "pdfs");
+
 if (!fs.existsSync(pdfFolder)) {
   fs.mkdirSync(pdfFolder);
 }
@@ -26,104 +27,158 @@ console.log("RESEND READY");
 // ================= SUBMIT =================
 app.post("/submit", async (req, res) => {
   try {
-    const { name, ic, email, phone, position, address, signature } = req.body;
+    const {
+      name,
+      ic,
+      email,
+      phone,
+      position,
+      address,
+      signature,
+    } = req.body;
 
-    if (!name || !ic || !email || !phone || !position || !address || !signature) {
+    // ================= VALIDATION =================
+    if (
+      !name ||
+      !ic ||
+      !email ||
+      !phone ||
+      !position ||
+      !address ||
+      !signature
+    ) {
       return res.status(400).send("❌ Data tidak lengkap");
     }
 
     const timestamp = Date.now();
+
     const safeName = name.replace(/\s+/g, "_");
 
     const filename = `${safeName}_${timestamp}.pdf`;
+
     const pdfPath = path.join(pdfFolder, filename);
 
-    // ================= SIGNATURE =================
-    const signaturePath = path.join(__dirname, `signature_${timestamp}.png`);
+    // ================= SAVE SIGNATURE =================
+    const signaturePath = path.join(
+      __dirname,
+      `signature_${timestamp}.png`
+    );
 
     fs.writeFileSync(
       signaturePath,
-      Buffer.from(signature.replace(/^data:image\/png;base64,/, ""), "base64")
+      Buffer.from(
+        signature.replace(
+          /^data:image\/png;base64,/,
+          ""
+        ),
+        "base64"
+      )
     );
 
-    // ================= PDF =================
-    const doc = new PDFDocument();
-    const stream = fs.createWriteStream(pdfPath);
+    // ================= CREATE PDF =================
+    await new Promise((resolve, reject) => {
 
-    doc.pipe(stream);
+      const doc = new PDFDocument();
 
-    doc.fontSize(18).text("BORANG TANDATANGAN", { align: "center" });
-    doc.moveDown();
+      const stream = fs.createWriteStream(pdfPath);
 
-    doc.fontSize(12);
-    doc.text(`Nama: ${name}`);
-    doc.text(`IC: ${ic}`);
-    doc.text(`Email: ${email}`);
-    doc.text(`Telefon: ${phone}`);
-    doc.text(`Jawatan: ${position}`);
-    doc.text(`Alamat: ${address}`);
+      doc.pipe(stream);
 
-    doc.moveDown();
-    doc.text("Tandatangan:");
-    doc.image(signaturePath, { width: 200 });
-
-    doc.end();
-
-    // ================= EMAIL =================
-    stream.on("finish", async () => {
-      try {
-        console.log("📤 Sending email via Resend...");
-
-        const result = await resend.emails.send({
-          from: "ZGG System <onboarding@resend.dev>",
-
-          to: [email, process.env.ADMIN_EMAIL],
-
-          subject: "Salinan Borang Tanda Tangan",
-
-          html: `
-            <h2>Terima kasih ${name}</h2>
-
-            <p>Borang anda telah diterima oleh <b>ZGG System</b>.</p>
-
-            <p>Maklumat anda telah berjaya disimpan.</p>
-          `,
-        });
-
-        console.log("📨 RESEND RESULT:", result);
-
-        // delete temp signature
-        if (fs.existsSync(signaturePath)) {
-          fs.unlinkSync(signaturePath);
+      // TITLE
+      doc.fontSize(18).text(
+        "BORANG TANDATANGAN",
+        {
+          align: "center",
         }
+      );
 
-        console.log("✅ EMAIL SENT SUCCESS");
+      doc.moveDown();
 
-        return res.send(
-          "✅ Berjaya hantar & email dihantar!"
-        );
+      // CONTENT
+      doc.fontSize(12);
 
-      } catch (err) {
+      doc.text(`Nama: ${name}`);
+      doc.moveDown();
 
-        console.log("❌ RESEND ERROR:");
+      doc.text(`IC: ${ic}`);
+      doc.moveDown();
+
+      doc.text(`Email: ${email}`);
+      doc.moveDown();
+
+      doc.text(`Telefon: ${phone}`);
+      doc.moveDown();
+
+      doc.text(`Jawatan: ${position}`);
+      doc.moveDown();
+
+      doc.text(`Alamat:`);
+      doc.text(address);
+
+      doc.moveDown(2);
+
+      doc.text("Tandatangan:");
+
+      doc.image(signaturePath, {
+        width: 200,
+      });
+
+      doc.end();
+
+      stream.on("finish", () => {
+        console.log("✅ PDF GENERATED");
+        resolve();
+      });
+
+      stream.on("error", (err) => {
+        console.log("❌ PDF ERROR:");
         console.log(err);
 
-        return res
-          .status(500)
-          .send("❌ Gagal hantar email");
-      }
+        reject(err);
+      });
     });
 
-    // ================= PDF ERROR =================
-    stream.on("error", (err) => {
+    // ================= SEND EMAIL =================
+    console.log("📤 Sending email via Resend...");
 
-      console.log("❌ PDF STREAM ERROR:");
-      console.log(err);
+    const result = await resend.emails.send({
 
-      return res
-        .status(500)
-        .send("❌ PDF error");
+      from: "ZGG System <onboarding@resend.dev>",
+
+      to: [
+        email,
+        process.env.ADMIN_EMAIL,
+      ],
+
+      subject: "Salinan Borang Tanda Tangan",
+
+      html: `
+        <h2>Terima kasih ${name}</h2>
+
+        <p>
+          Borang anda telah diterima oleh
+          <b>ZGG System</b>.
+        </p>
+
+        <p>
+          Maklumat anda telah berjaya disimpan.
+        </p>
+      `,
     });
+
+    console.log("📨 RESEND RESULT:");
+    console.log(result);
+
+    // ================= DELETE TEMP FILE =================
+    if (fs.existsSync(signaturePath)) {
+      fs.unlinkSync(signaturePath);
+    }
+
+    console.log("✅ EMAIL SENT SUCCESS");
+
+    return res.send(
+      "✅ Berjaya hantar & email dihantar!"
+    );
 
   } catch (err) {
 
@@ -133,6 +188,41 @@ app.post("/submit", async (req, res) => {
     return res
       .status(500)
       .send("❌ Server error");
+  }
+});
+
+// ================= TEST EMAIL =================
+app.get("/test-email", async (req, res) => {
+
+  try {
+
+    const result = await resend.emails.send({
+
+      from: "ZGG System <onboarding@resend.dev>",
+
+      to: process.env.ADMIN_EMAIL,
+
+      subject: "TEST EMAIL",
+
+      html: `
+        <h2>ZGG System Test</h2>
+
+        <p>
+          Kalau email ni sampai,
+          Resend dah berfungsi.
+        </p>
+      `,
+    });
+
+    console.log(result);
+
+    res.send("✅ TEST EMAIL SUCCESS");
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).send("❌ TEST EMAIL FAIL");
   }
 });
 
