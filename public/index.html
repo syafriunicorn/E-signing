@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Borang Tanda Tangan</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="form-container">
+    <h2>Borang Tanda Tangan</h2>
+    <form id="signature-form">
+      <input type="text" name="name" placeholder="Nama Penuh" required />
+      <input type="text" name="ic" placeholder="No. IC" required />
+      <input type="email" name="email" placeholder="Alamat Emel" required />
+      <input type="text" name="phone" placeholder="No. Telefon" required />
+      <input type="text" name="position" placeholder="jawatan" required />
+      <textarea name="address" placeholder="Alamat" required></textarea>
+
+      <label>Tandatangan:</label>
+      <canvas id="signature-pad" width="300" height="150"></canvas>
+      <button type="button" id="clear">Padam</button>
+
+      <button type="submit">Hantar</button>
+    </form>
+    <div id="response"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
