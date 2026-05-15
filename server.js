@@ -19,11 +19,11 @@ if (!fs.existsSync(pdfFolder)) {
   fs.mkdirSync(pdfFolder);
 }
 
-// ================= DEBUG ENV =================
+// ================= DEBUG ENV (IMPORTANT) =================
 console.log("EMAIL_USER:", process.env.EMAIL_USER);
 console.log("EMAIL_PASS length:", process.env.EMAIL_PASS?.length);
 
-// ================= EMAIL TRANSPORT =================
+// ================= EMAIL TRANSPORT (FIXED) =================
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
@@ -34,15 +34,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// verify (optional debug)
-transporter.verify((err) => {
+// verify email connection
+transporter.verify((err, success) => {
   if (err) {
-    console.log("❌ EMAIL VERIFY ERROR:");
-    console.log(err.message);
+    console.log("❌ EMAIL VERIFY ERROR FULL:");
+    console.log(err);
   } else {
-    console.log("✅ EMAIL READY");
+    console.log("✅ EMAIL READY OK");
   }
 });
+
 
 // ================= SUBMIT =================
 app.post("/submit", async (req, res) => {
@@ -96,7 +97,7 @@ app.post("/submit", async (req, res) => {
         console.log("📤 Sending email...");
 
         await transporter.sendMail({
-          from: `"Borang System" <${process.env.EMAIL_USER}>`,
+          from: process.env.EMAIL_USER,
           to: email,
           cc: process.env.ADMIN_EMAIL,
           subject: "Salinan Borang Tanda Tangan",
@@ -119,25 +120,29 @@ app.post("/submit", async (req, res) => {
 
         return res.send("✅ Berjaya hantar & email dihantar!");
       } catch (err) {
-        console.log("❌ EMAIL ERROR FULL:");
-        console.log(err.response || err.message || err);
+        console.log("❌ EMAIL ERROR:");
+        console.log(err.message || err);
 
-        return res.status(500).send("❌ Gagal hantar email");
+        return res.status(500).send("❌ Gagal hantar email (server)");
       }
     });
 
     stream.on("error", (err) => {
-      console.log("❌ PDF ERROR:", err);
+      console.log(err);
       return res.status(500).send("❌ PDF error");
     });
 
   } catch (err) {
-    console.log("❌ SERVER ERROR:", err);
+    console.log(err);
     return res.status(500).send("❌ Server error");
   }
 });
 
-// ================= TEST EMAIL =================
+// ================= START =================
+app.listen(PORT, () => {
+  console.log(`🚀 SERVER RUNNING ON PORT ${PORT}`);
+});
+
 app.get("/test-email", async (req, res) => {
   try {
     console.log("TEST EMAIL START");
@@ -146,7 +151,7 @@ app.get("/test-email", async (req, res) => {
       from: process.env.EMAIL_USER,
       to: process.env.ADMIN_EMAIL,
       subject: "TEST EMAIL FROM RENDER",
-      text: "Email test OK",
+      text: "Kalau sampai ni maknanya email OK di Render",
     });
 
     console.log("EMAIL SENT:", info.messageId);
@@ -154,13 +159,8 @@ app.get("/test-email", async (req, res) => {
     res.send("EMAIL SUCCESS");
   } catch (err) {
     console.log("EMAIL ERROR FULL:");
-    console.log(err.response || err.message || err);
+    console.log(err);
 
     res.status(500).send("EMAIL FAIL");
   }
-});
-
-// ================= START SERVER =================
-app.listen(PORT, () => {
-  console.log(`🚀 SERVER RUNNING ON PORT ${PORT}`);
 });
