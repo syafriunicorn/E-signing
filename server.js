@@ -6,207 +6,138 @@ const path = require("path");
 const PDFDocument = require("pdfkit");
 const nodemailer = require("nodemailer");
 
-console.log(process.env.EMAIL_USER);
-console.log(process.env.EMAIL_PASS);
-
 const app = express();
-
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // ================= MIDDLEWARE =================
 app.use(express.json({ limit: "10mb" }));
-
 app.use(express.static("public"));
 
-// ================= PDF FOLDER =================
+// ================= FOLDER =================
 const pdfFolder = path.join(__dirname, "pdfs");
-
 if (!fs.existsSync(pdfFolder)) {
   fs.mkdirSync(pdfFolder);
 }
 
-// ================= EMAIL =================
+// ================= DEBUG ENV (IMPORTANT) =================
+console.log("EMAIL_USER:", process.env.EMAIL_USER);
+console.log("EMAIL_PASS length:", process.env.EMAIL_PASS?.length);
+
+// ================= EMAIL TRANSPORT (FIXED) =================
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
   secure: true,
-
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
 
-// test email
+// verify email connection
 transporter.verify((err) => {
   if (err) {
-    console.log("❌ Email Error");
-    console.log(err);
+    console.log("❌ EMAIL CONNECTION ERROR:");
+    console.log(err.message);
   } else {
-    console.log("✅ Email Ready");
+    console.log("✅ EMAIL READY");
   }
 });
 
 // ================= SUBMIT =================
 app.post("/submit", async (req, res) => {
   try {
-    const {
-      name,
-      ic,
-      email,
-      phone,
-      position,
-      address,
-      signature,
-    } = req.body;
+    const { name, ic, email, phone, position, address, signature } = req.body;
 
-    // validation
-    if (
-      !name ||
-      !ic ||
-      !email ||
-      !phone ||
-      !position ||
-      !address ||
-      !signature
-    ) {
+    if (!name || !ic || !email || !phone || !position || !address || !signature) {
       return res.status(400).send("❌ Data tidak lengkap");
     }
 
     const timestamp = Date.now();
-
     const safeName = name.replace(/\s+/g, "_");
 
     const filename = `${safeName}_${timestamp}.pdf`;
-
     const pdfPath = path.join(pdfFolder, filename);
 
-    // ================= SAVE SIGNATURE =================
-    const signatureData = signature.replace(
-      /^data:image\/png;base64,/,
-      ""
-    );
-
-    const signaturePath = path.join(
-      __dirname,
-      `signature_${timestamp}.png`
-    );
+    // ================= SIGNATURE =================
+    const signaturePath = path.join(__dirname, `signature_${timestamp}.png`);
 
     fs.writeFileSync(
       signaturePath,
-      Buffer.from(signatureData, "base64")
+      Buffer.from(signature.replace(/^data:image\/png;base64,/, ""), "base64")
     );
 
     // ================= CREATE PDF =================
     const doc = new PDFDocument();
-
     const stream = fs.createWriteStream(pdfPath);
 
     doc.pipe(stream);
 
-    doc.fontSize(20).text("BORANG TANDATANGAN", {
-      align: "center",
-    });
-
-    doc.moveDown(2);
+    doc.fontSize(18).text("BORANG TANDATANGAN", { align: "center" });
+    doc.moveDown();
 
     doc.fontSize(12);
-
     doc.text(`Nama: ${name}`);
-    doc.moveDown();
-
-    doc.text(`No IC: ${ic}`);
-    doc.moveDown();
-
+    doc.text(`IC: ${ic}`);
     doc.text(`Email: ${email}`);
-    doc.moveDown();
-
     doc.text(`Telefon: ${phone}`);
-    doc.moveDown();
-
     doc.text(`Jawatan: ${position}`);
+    doc.text(`Alamat: ${address}`);
+
     doc.moveDown();
-
-    doc.text("Alamat:");
-    doc.text(address);
-
-    doc.moveDown(2);
-
     doc.text("Tandatangan:");
-
-    doc.image(signaturePath, {
-      width: 200,
-    });
+    doc.image(signaturePath, { width: 200 });
 
     doc.end();
 
-    // ================= PDF FINISH =================
+    // ================= EMAIL AFTER PDF =================
     stream.on("finish", async () => {
       try {
+        console.log("📤 Sending email...");
+
         await transporter.sendMail({
-          from: `"BORANG SYSTEM" <${process.env.EMAIL_USER}>`,
-
+          from: process.env.EMAIL_USER,
           to: email,
-
           cc: process.env.ADMIN_EMAIL,
-
-          subject: "Salinan Borang Anda",
-
+          subject: "Salinan Borang Tanda Tangan",
           html: `
             <h2>Terima kasih ${name}</h2>
-
-            <p>Borang anda berjaya dihantar.</p>
-
-            <p>PDF disertakan bersama email ini.</p>
+            <p>Borang anda telah diterima.</p>
+            <p>PDF dilampirkan.</p>
           `,
-
           attachments: [
             {
-              filename: filename,
+              filename,
               path: pdfPath,
             },
           ],
         });
 
-        // delete temp signature
-        if (fs.existsSync(signaturePath)) {
-          fs.unlinkSync(signaturePath);
-        }
+        fs.unlinkSync(signaturePath);
 
-        console.log("✅ Email sent");
+        console.log("✅ EMAIL SENT SUCCESS");
 
-        return res.send(
-          "✅ Borang berjaya dihantar & email berjaya dihantar."
-        );
+        return res.send("✅ Berjaya hantar & email dihantar!");
       } catch (err) {
-        console.log(err);
+        console.log("❌ EMAIL ERROR:");
+        console.log(err.message || err);
 
-        return res
-          .status(500)
-          .send("❌ Gagal menghantar email.");
+        return res.status(500).send("❌ Gagal hantar email (server)");
       }
     });
 
     stream.on("error", (err) => {
       console.log(err);
-
-      return res
-        .status(500)
-        .send("❌ Error generate PDF.");
+      return res.status(500).send("❌ PDF error");
     });
+
   } catch (err) {
     console.log(err);
-
-    return res.status(500).send("❌ Server Error");
+    return res.status(500).send("❌ Server error");
   }
 });
 
-// ================= START SERVER =================
+// ================= START =================
 app.listen(PORT, () => {
-  console.log(`
-🚀 SERVER RUNNING
-
-
-http://localhost:${PORT}
-  `);
+  console.log(`🚀 SERVER RUNNING ON PORT ${PORT}`);
 });
