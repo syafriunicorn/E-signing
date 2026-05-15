@@ -145,16 +145,22 @@ app.listen(PORT, () => {
 
 app.get("/test-email", async (req, res) => {
   try {
-    await transporter.sendMail({
+    console.log("TEST EMAIL START");
+
+    const info = await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.ADMIN_EMAIL,
-      subject: "TEST EMAIL",
-      text: "Email test dari Render OK",
+      subject: "TEST EMAIL FROM RENDER",
+      text: "Kalau sampai ni maknanya email OK di Render",
     });
 
-    res.send("EMAIL OK");
+    console.log("EMAIL SENT:", info.messageId);
+
+    res.send("EMAIL SUCCESS");
   } catch (err) {
+    console.log("EMAIL ERROR FULL:");
     console.log(err);
+
     res.status(500).send("EMAIL FAIL");
   }
 });
