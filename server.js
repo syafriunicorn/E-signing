@@ -4,7 +4,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 const app = express();
 
@@ -12,54 +12,33 @@ const PORT = process.env.PORT || 3000;
 
 // ================= MIDDLEWARE =================
 app.use(express.json({ limit: "10mb" }));
+
 app.use(express.static("public"));
 
+// ================= RESEND =================
+const resend = new Resend(
+  process.env.RESEND_API_KEY
+);
+
 // ================= PDF FOLDER =================
-const pdfFolder = path.join(__dirname, "pdfs");
+const pdfFolder = path.join(
+  __dirname,
+  "pdfs"
+);
 
 if (!fs.existsSync(pdfFolder)) {
   fs.mkdirSync(pdfFolder);
 }
 
-// ================= DEBUG ENV =================
-console.log("EMAIL_USER:", process.env.EMAIL_USER);
+// ================= DEBUG =================
+console.log("✅ RESEND READY");
+
 console.log(
-  "EMAIL_PASS:",
-  process.env.EMAIL_PASS
+  "RESEND KEY:",
+  process.env.RESEND_API_KEY
     ? "EXISTS"
     : "MISSING"
 );
-
-console.log("ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
-
-// ================= GMAIL =================
-const transporter = nodemailer.createTransport({
-
-  host: "smtp.gmail.com",
-
-  port: 465,
-
-  secure: true,
-
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// ================= VERIFY EMAIL =================
-transporter.verify((err, success) => {
-
-  if (err) {
-
-    console.log("❌ EMAIL VERIFY ERROR:");
-    console.log(err);
-
-  } else {
-
-    console.log("✅ EMAIL READY");
-  }
-});
 
 // ================= SUBMIT =================
 app.post("/submit", async (req, res) => {
@@ -88,8 +67,6 @@ app.post("/submit", async (req, res) => {
       !address ||
       !signature
     ) {
-
-      console.log("❌ VALIDATION FAILED");
 
       return res
         .status(400)
@@ -193,7 +170,7 @@ app.post("/submit", async (req, res) => {
 
       stream.on("error", (err) => {
 
-        console.log("❌ PDF ERROR:");
+        console.log("❌ PDF ERROR");
         console.log(err);
 
         reject(err);
@@ -203,44 +180,54 @@ app.post("/submit", async (req, res) => {
     // ================= SEND EMAIL =================
     try {
 
-      console.log("📤 TRYING TO SEND EMAIL");
+      console.log("📤 SENDING EMAIL VIA RESEND");
 
-      const info = await transporter.sendMail({
+      const pdfBuffer =
+        fs.readFileSync(pdfPath);
 
-        from: `"ZGG System" <${process.env.EMAIL_USER}>`,
+      const result =
+        await resend.emails.send({
 
-        to: email,
+          from:
+            "ZGG System <onboarding@resend.dev>",
 
-        cc: process.env.ADMIN_EMAIL,
+          to: [
+            process.env.ADMIN_EMAIL,
+          ],
 
-        subject: "Salinan Borang Tanda Tangan",
+          subject:
+            "Salinan Borang Tanda Tangan",
 
-        html: `
-          <h2>Terima kasih ${name}</h2>
+          html: `
+            <h2>
+              Terima kasih ${name}
+            </h2>
 
-          <p>
-            Borang anda telah berjaya diterima.
-          </p>
+            <p>
+              Borang anda telah berjaya diterima.
+            </p>
 
-          <p>
-            PDF dilampirkan bersama email ini.
-          </p>
-        `,
+            <p>
+              PDF dilampirkan bersama email ini.
+            </p>
+          `,
 
-        attachments: [
-          {
-            filename: filename,
-            path: pdfPath,
-          },
-        ],
-      });
+          attachments: [
+            {
+              filename: filename,
 
-      console.log("✅ EMAIL SENT SUCCESS");
-      console.log(info);
+              content:
+                pdfBuffer.toString("base64"),
+            },
+          ],
+        });
+
+      console.log("✅ EMAIL SUCCESS");
+      console.log(result);
 
     } catch (emailErr) {
 
-      console.log("❌ EMAIL SEND ERROR FULL:");
+      console.log("❌ RESEND ERROR:");
       console.log(emailErr);
 
       return res
@@ -252,8 +239,6 @@ app.post("/submit", async (req, res) => {
     if (fs.existsSync(signaturePath)) {
 
       fs.unlinkSync(signaturePath);
-
-      console.log("🗑️ TEMP SIGNATURE DELETED");
     }
 
     return res.send(
@@ -262,7 +247,7 @@ app.post("/submit", async (req, res) => {
 
   } catch (err) {
 
-    console.log("❌ SERVER ERROR FULL:");
+    console.log("❌ SERVER ERROR:");
     console.log(err);
 
     return res
@@ -276,37 +261,44 @@ app.get("/test-email", async (req, res) => {
 
   try {
 
-    console.log("🧪 TEST EMAIL START");
+    console.log("🧪 TEST EMAIL");
 
-    const info = await transporter.sendMail({
+    const result =
+      await resend.emails.send({
 
-      from: `"ZGG System" <${process.env.EMAIL_USER}>`,
+        from:
+          "ZGG System <onboarding@resend.dev>",
 
-      to: process.env.ADMIN_EMAIL,
+        to: process.env.ADMIN_EMAIL,
 
-      subject: "TEST EMAIL ZGG SYSTEM",
+        subject:
+          "TEST EMAIL ZGG SYSTEM",
 
-      html: `
-        <h1>TEST EMAIL</h1>
+        html: `
+          <h1>
+            TEST EMAIL SUCCESS
+          </h1>
 
-        <p>
-          Kalau email ni sampai,
-          Gmail App Password dah okay.
-        </p>
-      `,
-    });
+          <p>
+            Resend dah berjaya connect.
+          </p>
+        `,
+      });
 
-    console.log("✅ TEST EMAIL SUCCESS");
-    console.log(info);
+    console.log(result);
 
-    res.send("✅ TEST EMAIL SUCCESS");
+    res.send(
+      "✅ TEST EMAIL SUCCESS"
+    );
 
   } catch (err) {
 
-    console.log("❌ TEST EMAIL ERROR FULL:");
+    console.log("❌ TEST EMAIL ERROR");
     console.log(err);
 
-    res.status(500).send("❌ TEST EMAIL FAIL");
+    res
+      .status(500)
+      .send("❌ TEST EMAIL FAIL");
   }
 });
 

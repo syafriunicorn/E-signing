@@ -4,29 +4,154 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Borang Tanda Tangan</title>
+
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+
   <div class="form-container">
-    <h2>Borang Tanda Tangan</h2>
+
+    <!-- TOP BANNER -->
+    <div class="logo-wrapper">
+      <img 
+        src=images/banner.png
+        alt="RMM Banner"
+        class="top-banner"
+      />
+    </div>
+
+    <h2>Borang Tanda Tangan Digital</h2>
+
     <form id="signature-form">
-      <input type="text" name="name" placeholder="Nama Penuh" required />
-      <input type="text" name="ic" placeholder="No. IC" required />
-      <input type="email" name="email" placeholder="Alamat Emel" required />
-      <input type="text" name="phone" placeholder="No. Telefon" required />
-      <input type="text" name="position" placeholder="jawatan" required />
-      <textarea name="address" placeholder="Alamat" required></textarea>
 
-      <label>Tandatangan:</label>
-      <canvas id="signature-pad" width="300" height="150"></canvas>
-      <button type="button" id="clear">Padam</button>
+      <!-- HIDDEN SECURITY FIELD -->
+      <input 
+        type="hidden" 
+        name="formType" 
+        value="property-signature-form"
+      />
 
-      <button type="submit">Hantar</button>
+      <!-- NAME -->
+      <div class="input-group">
+        <input 
+          type="text"
+          name="name"
+          placeholder="Nama Penuh"
+          autocomplete="name"
+          required
+        />
+      </div>
+
+      <!-- IC -->
+      <div class="input-group">
+        <input 
+          type="text"
+          name="ic"
+          placeholder="No. Kad Pengenalan"
+          autocomplete="off"
+          required
+        />
+      </div>
+
+      <!-- EMAIL -->
+      <div class="input-group">
+        <input 
+          type="email"
+          name="email"
+          placeholder="Alamat Emel"
+          autocomplete="email"
+          required
+        />
+      </div>
+
+      <!-- PHONE -->
+      <div class="input-group">
+        <input 
+          type="tel"
+          name="phone"
+          placeholder="No. Telefon"
+          autocomplete="tel"
+          inputmode="numeric"
+          required
+        />
+      </div>
+
+      <!-- POSITION -->
+      <div class="input-group">
+        <input 
+          type="text"
+          name="position"
+          placeholder="Jawatan"
+          autocomplete="organization-title"
+          required
+        />
+      </div>
+
+      <!-- ADDRESS -->
+      <div class="input-group">
+        <textarea 
+          name="address"
+          placeholder="Alamat Penuh"
+          autocomplete="street-address"
+          required
+        ></textarea>
+      </div>
+
+      <!-- SIGNATURE -->
+      <div class="signature-wrapper">
+
+        <label class="signature-label">
+          Tandatangan Digital
+        </label>
+
+        <canvas id="signature-pad"></canvas>
+
+        <p class="signature-note">
+          Sila gunakan tandatangan sebenar seperti di dokumen rasmi.
+        </p>
+
+        <button type="button" id="clear">
+          Padam Tandatangan
+        </button>
+
+      </div>
+
+      <!-- DISCLAIMER -->
+      <div class="checkbox-group">
+
+        <input 
+          type="checkbox"
+          id="agree"
+          required
+        />
+
+        <label for="agree">
+          Saya dengan ini mengesahkan bahawa semua maklumat yang diberikan adalah benar dan tepat.
+
+          Saya memahami dan bersetuju bahawa tandatangan digital serta maklumat peribadi yang dikemukakan di dalam borang ini hanya akan digunakan bagi tujuan berkaitan urusan hartanah termasuk tempahan unit, permohonan pinjaman perumahan, dokumentasi, semakan kelayakan, serta urusan berkaitan dengan pihak bank, pemaju, peguam atau agensi berkaitan sahaja.
+
+          Semua maklumat adalah tertakluk kepada Akta Perlindungan Data Peribadi 2010 (PDPA) dan tidak akan digunakan bagi tujuan lain tanpa kebenaran saya.
+        </label>
+
+      </div>
+
+      <!-- SUBMIT -->
+      <button type="submit" class="submit-btn">
+        Hantar Borang
+      </button>
+
     </form>
+
     <div id="response"></div>
+
   </div>
 
+  <!-- SIGNATURE PAD -->
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+  <!-- JS -->
   <script src="script.js"></script>
+
 </body>
 </html>
