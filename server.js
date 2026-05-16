@@ -12,7 +12,6 @@ const PORT = process.env.PORT || 3000;
 
 // ================= MIDDLEWARE =================
 app.use(express.json({ limit: "10mb" }));
-
 app.use(express.static("public"));
 
 // ================= PDF FOLDER =================
@@ -22,10 +21,25 @@ if (!fs.existsSync(pdfFolder)) {
   fs.mkdirSync(pdfFolder);
 }
 
+// ================= DEBUG ENV =================
+console.log("EMAIL_USER:", process.env.EMAIL_USER);
+console.log(
+  "EMAIL_PASS:",
+  process.env.EMAIL_PASS
+    ? "EXISTS"
+    : "MISSING"
+);
+
+console.log("ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
+
 // ================= GMAIL =================
 const transporter = nodemailer.createTransport({
 
-  service: "gmail",
+  host: "smtp.gmail.com",
+
+  port: 465,
+
+  secure: true,
 
   auth: {
     user: process.env.EMAIL_USER,
@@ -38,7 +52,7 @@ transporter.verify((err, success) => {
 
   if (err) {
 
-    console.log("❌ EMAIL ERROR:");
+    console.log("❌ EMAIL VERIFY ERROR:");
     console.log(err);
 
   } else {
@@ -74,6 +88,9 @@ app.post("/submit", async (req, res) => {
       !address ||
       !signature
     ) {
+
+      console.log("❌ VALIDATION FAILED");
+
       return res
         .status(400)
         .send("❌ Data tidak lengkap");
@@ -95,6 +112,8 @@ app.post("/submit", async (req, res) => {
     );
 
     // ================= SAVE SIGNATURE =================
+    console.log("✍️ SAVING SIGNATURE");
+
     const signatureBase64 =
       signature.replace(
         /^data:image\/png;base64,/,
@@ -111,7 +130,11 @@ app.post("/submit", async (req, res) => {
       Buffer.from(signatureBase64, "base64")
     );
 
+    console.log("✅ SIGNATURE SAVED");
+
     // ================= CREATE PDF =================
+    console.log("📄 CREATING PDF");
+
     await new Promise((resolve, reject) => {
 
       const doc = new PDFDocument();
@@ -170,7 +193,7 @@ app.post("/submit", async (req, res) => {
 
       stream.on("error", (err) => {
 
-        console.log("❌ PDF ERROR");
+        console.log("❌ PDF ERROR:");
         console.log(err);
 
         reject(err);
@@ -178,44 +201,60 @@ app.post("/submit", async (req, res) => {
     });
 
     // ================= SEND EMAIL =================
-    console.log("📤 SENDING EMAIL");
+    try {
 
-    await transporter.sendMail({
+      console.log("📤 TRYING TO SEND EMAIL");
 
-      from: `"ZGG System" <${process.env.EMAIL_USER}>`,
+      const info = await transporter.sendMail({
 
-      to: email,
+        from: `"ZGG System" <${process.env.EMAIL_USER}>`,
 
-      cc: process.env.ADMIN_EMAIL,
+        to: email,
 
-      subject: "Salinan Borang Tanda Tangan",
+        cc: process.env.ADMIN_EMAIL,
 
-      html: `
-        <h2>Terima kasih ${name}</h2>
+        subject: "Salinan Borang Tanda Tangan",
 
-        <p>
-          Borang anda telah berjaya diterima.
-        </p>
+        html: `
+          <h2>Terima kasih ${name}</h2>
 
-        <p>
-          PDF dilampirkan bersama email ini.
-        </p>
-      `,
+          <p>
+            Borang anda telah berjaya diterima.
+          </p>
 
-      attachments: [
-        {
-          filename: filename,
-          path: pdfPath,
-        },
-      ],
-    });
+          <p>
+            PDF dilampirkan bersama email ini.
+          </p>
+        `,
+
+        attachments: [
+          {
+            filename: filename,
+            path: pdfPath,
+          },
+        ],
+      });
+
+      console.log("✅ EMAIL SENT SUCCESS");
+      console.log(info);
+
+    } catch (emailErr) {
+
+      console.log("❌ EMAIL SEND ERROR FULL:");
+      console.log(emailErr);
+
+      return res
+        .status(500)
+        .send("❌ Gagal hantar email");
+    }
 
     // ================= DELETE TEMP FILE =================
     if (fs.existsSync(signaturePath)) {
-      fs.unlinkSync(signaturePath);
-    }
 
-    console.log("✅ EMAIL SENT");
+      fs.unlinkSync(signaturePath);
+
+      console.log("🗑️ TEMP SIGNATURE DELETED");
+    }
 
     return res.send(
       "✅ Berjaya hantar & email dihantar!"
@@ -223,12 +262,12 @@ app.post("/submit", async (req, res) => {
 
   } catch (err) {
 
-    console.log("❌ SERVER ERROR");
+    console.log("❌ SERVER ERROR FULL:");
     console.log(err);
 
     return res
       .status(500)
-      .send("❌ Gagal hantar email");
+      .send("❌ Server error");
   }
 });
 
@@ -237,7 +276,9 @@ app.get("/test-email", async (req, res) => {
 
   try {
 
-    await transporter.sendMail({
+    console.log("🧪 TEST EMAIL START");
+
+    const info = await transporter.sendMail({
 
       from: `"ZGG System" <${process.env.EMAIL_USER}>`,
 
@@ -256,12 +297,13 @@ app.get("/test-email", async (req, res) => {
     });
 
     console.log("✅ TEST EMAIL SUCCESS");
+    console.log(info);
 
     res.send("✅ TEST EMAIL SUCCESS");
 
   } catch (err) {
 
-    console.log("❌ TEST EMAIL ERROR");
+    console.log("❌ TEST EMAIL ERROR FULL:");
     console.log(err);
 
     res.status(500).send("❌ TEST EMAIL FAIL");
